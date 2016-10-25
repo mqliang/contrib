@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/google_containers/nginx-slim:0.9
+FROM index.caicloud.io/caicloudgcr/google_containers_nginx-slim:0.9
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y \
   diffutils \
