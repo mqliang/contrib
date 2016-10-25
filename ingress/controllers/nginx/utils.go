@@ -264,6 +264,10 @@ const (
 	nginxIngressClass = "nginx"
 )
 
+const (
+	ingressLoadbalancerAnno = "ingress.alpha.k8s.io/loadbalancer-name"
+)
+
 func (ing ingAnnotations) ingressClass() string {
 	val, ok := ing[ingressClassKey]
 	if !ok {
@@ -277,6 +281,13 @@ func (ing ingAnnotations) ingressClass() string {
 func isNGINXIngress(ing *extensions.Ingress) bool {
 	class := ingAnnotations(ing.ObjectMeta.Annotations).ingressClass()
 	return class == "" || class == nginxIngressClass
+}
+
+func isAssignedIngress(ing *extensions.Ingress, name string) bool {
+	if ing.Annotations == nil {
+		return false
+	}
+	return strings.HasPrefix(ing.Annotations[ingressLoadbalancerAnno], name)
 }
 
 const (

@@ -168,6 +168,10 @@ func newLoadBalancerController(kubeClient *client.Client, resyncPeriod time.Dura
 				glog.Infof("Ignoring add for ingress %v based on annotation %v", addIng.Name, ingressClassKey)
 				return
 			}
+			if !isAssignedIngress(addIng, runtimeInfo.PodName) {
+				glog.Infof("Ignoring add for ingress %v based on annotation %v", addIng.Name, ingressLoadbalancerAnno)
+				return
+			}
 			lbc.recorder.Eventf(addIng, api.EventTypeNormal, "CREATE", fmt.Sprintf("%s/%s", addIng.Namespace, addIng.Name))
 			lbc.ingQueue.enqueue(obj)
 			lbc.syncQueue.enqueue(obj)
@@ -178,12 +182,20 @@ func newLoadBalancerController(kubeClient *client.Client, resyncPeriod time.Dura
 				glog.Infof("Ignoring add for ingress %v based on annotation %v", delIng.Name, ingressClassKey)
 				return
 			}
+			if !isAssignedIngress(delIng, runtimeInfo.PodName) {
+				glog.Infof("Ignoring add for ingress %v based on annotation %v", delIng.Name, ingressLoadbalancerAnno)
+				return
+			}
 			lbc.recorder.Eventf(delIng, api.EventTypeNormal, "DELETE", fmt.Sprintf("%s/%s", delIng.Namespace, delIng.Name))
 			lbc.syncQueue.enqueue(obj)
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			curIng := cur.(*extensions.Ingress)
 			if !isNGINXIngress(curIng) {
+				return
+			}
+			if !isAssignedIngress(curIng, runtimeInfo.PodName) {
+				glog.Infof("Ignoring add for ingress %v based on annotation %v", curIng.Name, ingressLoadbalancerAnno)
 				return
 			}
 			if !reflect.DeepEqual(old, cur) {
