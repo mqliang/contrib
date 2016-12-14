@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  namespace: "kube-system"
+  name: "prometheus-hpa-controller"
+  labels:
+    run: "prometheus-hpa-controller"
+spec:
+  replicas: 1
+  selector:
+    run: "prometheus-hpa-controller"
+  template:
+   metadata:
+    labels:
+      run: "prometheus-hpa-controller"
+   spec:
+    containers:
+      - image: "index.caicloud.io/caicloud/prometheus-hpa-controller:v0.0.1"
+        imagePullPolicy: "Always"
+        name: "prometheus-hpa-controller"
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
