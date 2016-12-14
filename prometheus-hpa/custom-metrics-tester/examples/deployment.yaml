@@ -1,0 +1,38 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    run: custom-metrics-tester
+  name: custom-metrics-tester
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: custom-metrics-tester
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+      labels:
+        run: custom-metrics-tester
+    spec:
+      containers:
+      - image: index.caicloud.io/caicloud/custom-metrics-tester:v0.0.1
+        imagePullPolicy: Always
+        name: custom-metrics-tester
+        ports:
+        - containerPort: 9102
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100M
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}

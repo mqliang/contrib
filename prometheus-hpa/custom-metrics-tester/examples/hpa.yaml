@@ -1,0 +1,14 @@
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: custom-metrics-tester
+  namespace: default
+  annotations:
+    alpha/target.custom-metrics.podautoscaler.kubernetes.io: '{"items":[{"name":"qos", "value": "10"}]}'
+spec:
+  maxReplicas: 100
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    name: custom-metrics-tester
