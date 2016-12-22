@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -31,17 +32,24 @@ import (
 	"k8s.io/client-go/1.5/rest"
 )
 
-const defaultHorizontalPodAutoscalerSyncPeriod = 30 * time.Second
+const (
+	defaultHorizontalPodAutoscalerSyncPeriod = 30 * time.Second
+	defaultPrometheusAddress                 = "http://prometheus-0.kube-system.svc:9090"
+)
 
 var (
-	flags        = pflag.NewFlagSet("", pflag.ContinueOnError)
+	flags             = pflag.NewFlagSet("", pflag.ContinueOnError)
+	prometheusAddress = flags.String("prometheus-address", defaultPrometheusAddress,
+		`Prometheus address`)
 	resyncPeriod = flags.Duration("horizontal-pod-autoscaler-sync-period", defaultHorizontalPodAutoscalerSyncPeriod,
 		`The period for syncing the number of pods in horizontal pod autoscaler.`)
 )
 
 func init() {
-	flag.Set("logtostderr", "true")
-	flag.Parse()
+	flags.Set("logtostderr", "true")
+	flags.AddGoFlagSet(flag.CommandLine)
+	flags.Parse(os.Args)
+
 	go wait.Until(glog.Flush, 10*time.Second, wait.NeverStop)
 }
 
@@ -58,7 +66,7 @@ func main() {
 	}
 
 	// create prometheus metrics client
-	prometheusClient, err := prometheus.New(prometheus.Config{Address: metrics.DefaultPrometheusAddress})
+	prometheusClient, err := prometheus.New(prometheus.Config{Address: *prometheusAddress})
 	if err != nil {
 		panic(err.Error())
 	}

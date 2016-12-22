@@ -19,8 +19,8 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/api/prometheus"
@@ -33,7 +33,6 @@ import (
 )
 
 const (
-	DefaultPrometheusAddress    = "http://prometheus-0.kube-system.svc:9090"
 	DefaultCPUUtilizationMetric = "container_cpu_usage_seconds_total"
 )
 
@@ -84,7 +83,7 @@ func (h *PrometheusMetricsClient) GetCpuConsumptionAndRequestInMillis(namespace 
 	if err != nil {
 		return 0, 0, time.Time{}, fmt.Errorf("failed to get pod list: %v", err)
 	}
-	podNames := map[string]struct{}{}
+	podNames := []string{}
 	requestSum := int64(0)
 	missing := false
 	for _, pod := range podList.Items {
@@ -93,7 +92,7 @@ func (h *PrometheusMetricsClient) GetCpuConsumptionAndRequestInMillis(namespace 
 			continue
 		}
 
-		podNames[pod.Name] = struct{}{}
+		podNames = append(podNames, pod.Name)
 		for _, container := range pod.Spec.Containers {
 			if containerRequest, ok := container.Resources.Requests[v1.ResourceCPU]; ok {
 				requestSum += containerRequest.MilliValue()
@@ -118,33 +117,27 @@ func (h *PrometheusMetricsClient) GetCpuConsumptionAndRequestInMillis(namespace 
 	return consumption, requestAvg, timestamp, nil
 }
 
-func (h *PrometheusMetricsClient) getCpuUtilizationForPods(namespace string, selector labels.Selector, podNames map[string]struct{}) (consumption int64, timestamp time.Time, err error) {
-	podListReg := "("
-	for podName := range podNames {
-		podListReg += podName + "|"
-	}
-	// trim the last "|"
-	strings.TrimSuffix(podListReg, "|")
-	podListReg += ").*"
+func (h *PrometheusMetricsClient) getCpuUtilizationForPods(namespace string, selector labels.Selector, podNames []string) (consumption int64, timestamp time.Time, err error) {
+	podList := "(" + strings.Join(podNames, "|") + ").*"
 
-	query := fmt.Sprintf("sum(rate({__name__='%s',namespace='%s',pod_name=~'%s'}[30m]))", DefaultCPUUtilizationMetric, namespace, podListReg)
+	query := fmt.Sprintf("sum(rate({__name__='%s',namespace='%s',pod_name=~'%s'}[30m]))", DefaultCPUUtilizationMetric, namespace, podList)
 	glog.V(4).Infof("Prometheus query: %v", query)
 
 	ctx := context.TODO()
 	result, err := h.queryAPI.Query(ctx, query, time.Now())
 	if err != nil {
-		return 0, time.Time{}, fmt.Errorf("failed to get metrics %v for pods: %v due to: %v", DefaultCPUUtilizationMetric, podListReg, err)
+		return 0, time.Time{}, fmt.Errorf("failed to get metrics %v for pods: %v due to: %v", DefaultCPUUtilizationMetric, podList, err)
 	}
 
 	metrics := result.(model.Vector)
 	if len(metrics) == 0 {
-		return 0, time.Time{}, fmt.Errorf("cpu metrics missing for pods %s", podListReg)
+		return 0, time.Time{}, fmt.Errorf("cpu metrics missing for pods %s", podList)
 	}
 	glog.V(4).Infof("Prometheus metrics result: %#v", metrics)
 
 	// we already sum in the query statement, prometheus will sum for us
 	// *1000 to get the k8s MilliValue: in k8s, 1000m = 1 core
-	sum := float64(metrics[0].Value) *1000
+	sum := float64(metrics[0].Value) * 1000
 
 	return int64(sum / float64(len(podNames))), metrics[0].Timestamp.Time(), nil
 }
@@ -177,26 +170,20 @@ func (h *PrometheusMetricsClient) GetCustomMetric(customMetricName string, names
 }
 
 func (h *PrometheusMetricsClient) getCustomMetricForPods(customMetricName string, namespace string, podNames []string) (float64, time.Time, error) {
-	podListReg := "("
-	for _, podName := range podNames {
-		podListReg += podName + "|"
-	}
-	// trim the last "|"
-	strings.TrimSuffix(podListReg, "|")
-	podListReg += ").*"
+	podList := "(" + strings.Join(podNames, "|") + ").*"
 
-	query := fmt.Sprintf("sum({__name__='%s',kubernetes_namespace='%s',kubernetes_pod_name=~'%s'})", customMetricName, namespace, podListReg)
+	query := fmt.Sprintf("sum({__name__='%s',kubernetes_namespace='%s',kubernetes_pod_name=~'%s'})", customMetricName, namespace, podList)
 	glog.V(4).Infof("Prometheus query: %v", query)
 
 	ctx := context.TODO()
 	result, err := h.queryAPI.Query(ctx, query, time.Now())
 	if err != nil {
-		return 0, time.Time{}, fmt.Errorf("failed to get metrics %v for pods: %v due to: %v", customMetricName, podListReg, err)
+		return 0, time.Time{}, fmt.Errorf("failed to get metrics %v for pods: %v due to: %v", customMetricName, podList, err)
 	}
 
 	metrics := result.(model.Vector)
 	if len(metrics) == 0 {
-		return 0, time.Time{}, fmt.Errorf("metric %v missing for pods: %s", customMetricName, podListReg)
+		return 0, time.Time{}, fmt.Errorf("metric %v missing for pods: %s", customMetricName, podList)
 	}
 	glog.V(4).Infof("Prometheus metrics result: %#v", metrics)
 
