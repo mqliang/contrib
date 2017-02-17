@@ -61,8 +61,12 @@ func getResourceList(annotation map[string]string) (*v1.ResourceList, error) {
 	}, nil
 }
 
-func generateLoadBalancerName(claim *api.LoadBalancerClaim) string {
+func getNginxLoadBalancerName(claim *api.LoadBalancerClaim) string {
 	return claim.Name + "-aotoprovision-" + randStringBytesRmndr(4)
+}
+
+func getAliyunLoadBalancerName(claim *api.LoadBalancerClaim) string {
+	return claim.Name
 }
 
 // randStringBytesRmndr returns a randome string.

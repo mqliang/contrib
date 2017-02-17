@@ -32,7 +32,8 @@ import (
 
 	"k8s.io/contrib/ingress-admin/loadbalancer-controller/controller"
 	"k8s.io/contrib/ingress-admin/loadbalancer-controller/loadbalancerprovider"
-	"k8s.io/contrib/ingress-admin/loadbalancer-controller/loadbalancerprovider/providers"
+	"k8s.io/contrib/ingress-admin/loadbalancer-controller/loadbalancerprovider/providers/aliyun"
+	"k8s.io/contrib/ingress-admin/loadbalancer-controller/loadbalancerprovider/providers/nginx"
 )
 
 var (
@@ -47,6 +48,7 @@ func init() {
 
 func init() {
 	loadbalancerprovider.RegisterPlugin(nginx.ProbeLoadBalancerPlugin())
+	loadbalancerprovider.RegisterPlugin(aliyun.ProbeLoadBalancerPlugin())
 }
 
 func main() {

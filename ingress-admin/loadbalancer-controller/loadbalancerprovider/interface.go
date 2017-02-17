@@ -16,16 +16,16 @@ limitations under the License.
 package loadbalancerprovider
 
 import (
-	"sync"
 	"fmt"
 	"strings"
+	"sync"
 
 	"k8s.io/contrib/ingress-admin/loadbalancer-controller/api"
 
+	"k8s.io/client-go/1.5/dynamic"
+	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/util/validation"
-	"k8s.io/client-go/1.5/kubernetes"
-	"k8s.io/client-go/1.5/dynamic"
 )
 
 type LoadBalancerPlugin interface {
@@ -35,9 +35,16 @@ type LoadBalancerPlugin interface {
 }
 
 type LoadBalancerOptions struct {
-	Resources v1.ResourceRequirements
+	Resources        v1.ResourceRequirements
 	LoadBalancerName string
+	// option for ginx ingress-controller
 	LoadBalancerVIP string
+	// option for aliyun ingress-controller
+	ClusterName           string
+	AliyunAccessKeyID     string
+	AliyunAccessKeySecret string
+	AliyunReginonID       string
+	AliyunZoneID          string
 }
 
 type Provisioner interface {
@@ -51,7 +58,7 @@ type LoadBalancerPluginMgr struct {
 }
 
 var PluginMgr LoadBalancerPluginMgr = LoadBalancerPluginMgr{
-	mutex: sync.Mutex{},
+	mutex:   sync.Mutex{},
 	plugins: map[string]LoadBalancerPlugin{},
 }
 
@@ -66,13 +73,13 @@ func RegisterPlugin(plugin LoadBalancerPlugin) error {
 	if _, found := PluginMgr.plugins[name]; found {
 		return fmt.Errorf("volume plugin %q was registered more than once", name)
 	}
-	
+
 	PluginMgr.plugins[name] = plugin
-	
+
 	return nil
 }
 
-func(pm *LoadBalancerPluginMgr) FindPluginBySpec(claim *api.LoadBalancerClaim) (LoadBalancerPlugin, error) {
+func (pm *LoadBalancerPluginMgr) FindPluginBySpec(claim *api.LoadBalancerClaim) (LoadBalancerPlugin, error) {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
 
@@ -90,6 +97,3 @@ func(pm *LoadBalancerPluginMgr) FindPluginBySpec(claim *api.LoadBalancerClaim) (
 	}
 	return pm.plugins[matches[0]], nil
 }
-
-
-

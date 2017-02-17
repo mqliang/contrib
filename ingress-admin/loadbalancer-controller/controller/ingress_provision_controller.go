@@ -171,19 +171,30 @@ func (pc *ProvisionController) provosion(claim *tpapi.LoadBalancerClaim) (string
 		return "", err
 	}
 
-	resourceList, err := getResourceList(claim.Annotations)
-	if err != nil {
-		return "", err
+	var provisioner loadbalancerprovider.Provisioner
+	if claim.Annotations[IngressProvisioningClassKey] == "ingress.alpha.k8s.io/ingress-aliyun" {
+		provisioner = plugin.NewProvisioner(loadbalancerprovider.LoadBalancerOptions{
+			LoadBalancerName:      getAliyunLoadBalancerName(claim),
+			ClusterName:           claim.Annotations[ingressParameterClusterNameKey],
+			AliyunAccessKeyID:     claim.Annotations[ingressParameterAliyunAccessKeyIDKey],
+			AliyunAccessKeySecret: claim.Annotations[ingressParameterAliyunAccessKeySecretKey],
+			AliyunReginonID:       claim.Annotations[ingressParameterAliyunReginonIDKey],
+			AliyunZoneID:          claim.Annotations[ingressParameterAliyunZoneIDKey],
+		})
+	} else {
+		resourceList, err := getResourceList(claim.Annotations)
+		if err != nil {
+			return "", err
+		}
+		provisioner = plugin.NewProvisioner(loadbalancerprovider.LoadBalancerOptions{
+			Resources: v1.ResourceRequirements{
+				Requests: *resourceList,
+				Limits:   *resourceList,
+			},
+			LoadBalancerName: getNginxLoadBalancerName(claim),
+			LoadBalancerVIP:  claim.Annotations[IngressParameterVIPKey],
+		})
 	}
-
-	provisioner := plugin.NewProvisioner(loadbalancerprovider.LoadBalancerOptions{
-		Resources: v1.ResourceRequirements{
-			Requests: *resourceList,
-			Limits:   *resourceList,
-		},
-		LoadBalancerName: generateLoadBalancerName(claim),
-		LoadBalancerVIP:  claim.Annotations[IngressParameterVIPKey],
-	})
 
 	return provisioner.Provision(pc.clientset, pc.dynamicClient)
 }
