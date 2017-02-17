@@ -52,6 +52,8 @@ docker run --rm -v `pwd`:/go/src/k8s.io/contrib/ingress-admin/loadbalancer-contr
 # Build loadbalancer-controller container.
 docker build -t caicloud/loadbalancer-controller:${IMAGE_TAG} .
 docker tag caicloud/loadbalancer-controller:${IMAGE_TAG} index.caicloud.io/caicloud/loadbalancer-controller:${IMAGE_TAG}
+docker tag caicloud/loadbalancer-controller:${IMAGE_TAG} cargo.caicloud.io/caicloud/loadbalancer-controller:${IMAGE_TAG}
+docker tag caicloud/loadbalancer-controller:${IMAGE_TAG} cargo.caicloudprivatetest.com/caicloud/loadbalancer-controller:${IMAGE_TAG}
 
 cd - > /dev/null
 
@@ -60,6 +62,8 @@ if [[ "$PUSH_TO_REGISTRY" == "Y" ]]; then
   echo ""
   echo "+++++ Start pushing loadbalancer-controller"
   docker push index.caicloud.io/caicloud/loadbalancer-controller:${IMAGE_TAG}
+  docker push cargo.caicloud.io/caicloud/loadbalancer-controller:${IMAGE_TAG}
+  docker push cargo.caicloudprivatetest.com/caicloud/loadbalancer-controller:${IMAGE_TAG}
 fi
 
 echo "Successfully built docker image caicloud/loadbalancer-controller:${IMAGE_TAG}"
