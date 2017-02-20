@@ -89,7 +89,7 @@ type nginxLoadbalancerProvisioner struct {
 var _ loadbalancerprovider.Provisioner = &nginxLoadbalancerProvisioner{}
 
 func (p *nginxLoadbalancerProvisioner) Provision(clientset *kubernetes.Clientset, dynamicClient *dynamic.Client) (string, error) {
-	service, rc, loadbalancer := p.getService(), p.getReplicationController(), p.getLoadBalancer()
+	service, rc, configmap, loadbalancer := p.getService(), p.getReplicationController(), p.getConfigMap(), p.getLoadBalancer()
 
 	lbUnstructed, err := loadbalancer.ToUnstructured()
 	if err != nil {
@@ -103,6 +103,9 @@ func (p *nginxLoadbalancerProvisioner) Provision(clientset *kubernetes.Clientset
 		if _, err := clientset.Core().ReplicationControllers("kube-system").Create(rc); err != nil {
 			return err
 		}
+		if _, err := clientset.Core().ConfigMaps("kube-system").Create(configmap); err != nil {
+			return err
+		}
 		if _, err := dynamicClient.Resource(lbresource, "kube-system").Create(lbUnstructed); err != nil {
 			return err
 		}
@@ -110,14 +113,17 @@ func (p *nginxLoadbalancerProvisioner) Provision(clientset *kubernetes.Clientset
 	}()
 
 	if err != nil {
-		if err := clientset.Core().Services("kube-system").Delete(service.Name, &api.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
-			glog.Errorf("Failed do delete service due to: %v", err)
+		if err := clientset.Core().Services("kube-system").Delete(service.Name, nil); err != nil && !errors.IsNotFound(err) {
+			glog.Errorf("Faile do delete service due to: %v", err)
 		}
-		if err := clientset.Core().ReplicationControllers("kube-system").Delete(rc.Name, &api.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
-			glog.Errorf("Failed do delete rc due to: %v", err)
+		if err := clientset.Core().ReplicationControllers("kube-system").Delete(rc.Name, nil); err != nil && !errors.IsNotFound(err) {
+			glog.Errorf("Faile do delete rc due to: %v", err)
 		}
-		if err := dynamicClient.Resource(lbresource, "kube-system").Delete(lbUnstructed.GetName(), &v1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
-			glog.Errorf("Failed do delete lb due to: %v", err)
+		if err := clientset.Core().ConfigMaps("kube-system").Delete(configmap.Name, nil); err != nil && !errors.IsNotFound(err) {
+			glog.Errorf("Faile do delete configmap due to: %v", err)
+		}
+		if err := dynamicClient.Resource(lbresource, "kube-system").Delete(lbUnstructed.GetName(), nil); err != nil && !errors.IsNotFound(err) {
+			glog.Errorf("Faile do delete lb due to: %v", err)
 		}
 
 		return "", fmt.Errorf("Failed to provision loadbalancer due to: %v", err)
@@ -133,9 +139,11 @@ func (p *nginxLoadbalancerProvisioner) getLoadBalancer() *tprapi.LoadBalancer {
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name: p.options.LoadBalancerName,
+			Labels: map[string]string{
+				"kubernetes.io/createdby": "loadbalancer-nginx-dynamic-provisioner",
+			},
 			Annotations: map[string]string{
 				controller.IngressParameterVIPKey: p.options.LoadBalancerVIP,
-				"kubernetes.io/createdby":         "loadbalancer-nginx-dynamic-provisioner",
 			},
 		},
 		Spec: tprapi.LoadBalancerSpec{
@@ -154,9 +162,11 @@ func (p *nginxLoadbalancerProvisioner) getService() *v1.Service {
 	return &v1.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name: p.options.LoadBalancerName,
+			Labels: map[string]string{
+				"kubernetes.io/createdby": "loadbalancer-nginx-dynamic-provisioner",
+			},
 			Annotations: map[string]string{
 				controller.IngressParameterVIPKey: p.options.LoadBalancerVIP,
-				"kubernetes.io/createdby":         "loadbalancer-nginx-dynamic-provisioner",
 			},
 		},
 		Spec: v1.ServiceSpec{
@@ -173,10 +183,25 @@ func (p *nginxLoadbalancerProvisioner) getService() *v1.Service {
 	}
 }
 
+func (p *nginxLoadbalancerProvisioner) getConfigMap() *v1.ConfigMap {
+	return &v1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name: p.options.LoadBalancerName,
+			Labels: map[string]string{
+				"k8s-app":                 p.options.LoadBalancerName,
+				"kubernetes.io/createdby": "loadbalancer-nginx-dynamic-provisioner",
+			},
+		},
+		Data: map[string]string{
+			"enable-sticky-sessions": "true",
+		},
+	}
+}
+
 func (p *nginxLoadbalancerProvisioner) getReplicationController() *v1.ReplicationController {
 	nginxlbReplicas, terminationGracePeriodSeconds, nginxlbPrivileged := int32(2), int64(60), true
 
-	lbTolerations, _ := json.Marshal([]api.Toleration{{Key: "dedicated", Value: "loadbalancer", Effect: api.TaintEffectNoSchedule}})
+	lbTolerations, _ := json.Marshal([]api.Toleration{{Key: "dedicated", Value: "loadbalancer", Effect: api.TaintEffectPreferNoSchedule}})
 
 	nodeAffinity := &v1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
@@ -206,9 +231,7 @@ func (p *nginxLoadbalancerProvisioner) getReplicationController() *v1.Replicatio
 		ObjectMeta: v1.ObjectMeta{
 			Name: p.options.LoadBalancerName,
 			Labels: map[string]string{
-				"k8s-app": p.options.LoadBalancerName,
-			},
-			Annotations: map[string]string{
+				"k8s-app":                 p.options.LoadBalancerName,
 				"kubernetes.io/createdby": "loadbalancer-nginx-dynamic-provisioner",
 			},
 		},
@@ -233,14 +256,13 @@ func (p *nginxLoadbalancerProvisioner) getReplicationController() *v1.Replicatio
 							Image:           keepalibedImage,
 							ImagePullPolicy: v1.PullAlways,
 							Resources: v1.ResourceRequirements{
-								// TODO: mqke this configurable
 								Requests: v1.ResourceList{
-									v1.ResourceCPU:    resource.MustParse("50m"),
-									v1.ResourceMemory: resource.MustParse("50Mi"),
+									v1.ResourceCPU:    resource.MustParse("100m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
 								},
 								Limits: v1.ResourceList{
-									v1.ResourceCPU:    resource.MustParse("50m"),
-									v1.ResourceMemory: resource.MustParse("50Mi"),
+									v1.ResourceCPU:    resource.MustParse("100m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
 								},
 							},
 							SecurityContext: &v1.SecurityContext{
@@ -313,16 +335,19 @@ func (p *nginxLoadbalancerProvisioner) getReplicationController() *v1.Replicatio
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: 80,
-									HostPort:      80,
+									//HostPort:      80,
+									HostIP: p.options.LoadBalancerVIP,
 								},
 								{
 									ContainerPort: 443,
-									HostPort:      443,
+									//HostPort:      443,
+									HostIP: p.options.LoadBalancerVIP,
 								},
 							},
 							Args: []string{
 								"/nginx-ingress-controller",
 								"--default-backend-service=default/default-http-backend",
+								"--nginx-configmap=kube-system/" + p.options.LoadBalancerName,
 							},
 						},
 					},
