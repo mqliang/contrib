@@ -193,6 +193,7 @@ func (pc *ProvisionController) provosion(claim *tpapi.LoadBalancerClaim) (string
 			},
 			LoadBalancerName: getNginxLoadBalancerName(claim),
 			LoadBalancerVIP:  claim.Annotations[IngressParameterVIPKey],
+			LoadBalancerVRID: claim.Annotations[IngressParameterVRIDKey],
 		})
 	}
 

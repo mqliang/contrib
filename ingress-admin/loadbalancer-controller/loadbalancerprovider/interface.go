@@ -38,7 +38,8 @@ type LoadBalancerOptions struct {
 	Resources        v1.ResourceRequirements
 	LoadBalancerName string
 	// option for ginx ingress-controller
-	LoadBalancerVIP string
+	LoadBalancerVIP  string
+	LoadBalancerVRID string
 	// option for aliyun ingress-controller
 	ClusterName           string
 	AliyunAccessKeyID     string

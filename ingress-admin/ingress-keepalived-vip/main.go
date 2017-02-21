@@ -46,6 +46,7 @@ const (
 	keepalivedCfg  = "/etc/keepalived/keepalived.conf"
 
 	IngressVIPAnnotationKey           = "ingress.alpha.k8s.io/ingress-vip"
+	IngressVRIDAnnotationKey          = "ingress.alpha.k8s.io/ingress-vrid"
 	IngressVIPAllicationAnnotationKey = "ingress.alpha.k8s.io/ingress-vip-allocation"
 )
 

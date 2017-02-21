@@ -166,7 +166,8 @@ func (p *nginxLoadbalancerProvisioner) getService() *v1.Service {
 				"kubernetes.io/createdby": "loadbalancer-nginx-dynamic-provisioner",
 			},
 			Annotations: map[string]string{
-				controller.IngressParameterVIPKey: p.options.LoadBalancerVIP,
+				controller.IngressParameterVIPKey:  p.options.LoadBalancerVIP,
+				controller.IngressParameterVRIDKey: p.options.LoadBalancerVRID,
 			},
 		},
 		Spec: v1.ServiceSpec{

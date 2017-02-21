@@ -30,6 +30,7 @@ const (
 	ingressParameterCPUKey = "ingress.alpha.k8s.io/ingress-cpu"
 	ingressParameterMEMKey = "ingress.alpha.k8s.io/ingress-mem"
 	IngressParameterVIPKey = "ingress.alpha.k8s.io/ingress-vip"
+	IngressParameterVRIDKey = "ingress.alpha.k8s.io/ingress-vrid"
 
 	ingressParameterClusterNameKey           = "ingress.alpha.k8s.io/cluster-name"
 	ingressParameterAliyunAccessKeyIDKey     = "ingress.alpha.k8s.io/aliyun-access-key-id"
