@@ -31,7 +31,7 @@ type LoadBalancer struct {
 type LoadBalancerSpec struct {
 	NginxLoadBalancer *NginxLoadBalancer `json:"nginxLoadBalancer,omitempty"`
 	//HaproxyLoadBalancer *HaproxyLoadBalancer
-	AliyunLoadBalancer *AliyunLoadBalancer
+	AliyunLoadBalancer *AliyunLoadBalancer `json:"aliyunLoadBalancer,omitempty"`
 	//AnchnetLoadBalancer *AnchnetLoadBalancer
 }
 
