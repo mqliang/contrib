@@ -27,14 +27,14 @@ const (
 
 	IngressProvisioningClassKey = "ingress.alpha.k8s.io/ingress-class"
 
-	ingressParameterCPUKey = "ingress.alpha.k8s.io/ingress-cpu"
-	ingressParameterMEMKey = "ingress.alpha.k8s.io/ingress-mem"
-	IngressParameterVIPKey = "ingress.alpha.k8s.io/ingress-vip"
+	ingressParameterCPUKey  = "ingress.alpha.k8s.io/ingress-cpu"
+	ingressParameterMEMKey  = "ingress.alpha.k8s.io/ingress-mem"
+	IngressParameterVIPKey  = "ingress.alpha.k8s.io/ingress-vip"
 	IngressParameterVRIDKey = "ingress.alpha.k8s.io/ingress-vrid"
 
 	ingressParameterClusterNameKey           = "ingress.alpha.k8s.io/cluster-name"
 	ingressParameterAliyunAccessKeyIDKey     = "ingress.alpha.k8s.io/aliyun-access-key-id"
 	ingressParameterAliyunAccessKeySecretKey = "ingress.alpha.k8s.io/aliyun-access-key-secret"
-	ingressParameterAliyunReginonIDKey       = "ingress.alpha.k8s.io/aliyun-region-id"
+	ingressParameterAliyunRegionIDKey        = "ingress.alpha.k8s.io/aliyun-region-id"
 	ingressParameterAliyunZoneIDKey          = "ingress.alpha.k8s.io/aliyun-zone-id"
 )

@@ -178,7 +178,7 @@ func (pc *ProvisionController) provosion(claim *tpapi.LoadBalancerClaim) (string
 			ClusterName:           claim.Annotations[ingressParameterClusterNameKey],
 			AliyunAccessKeyID:     claim.Annotations[ingressParameterAliyunAccessKeyIDKey],
 			AliyunAccessKeySecret: claim.Annotations[ingressParameterAliyunAccessKeySecretKey],
-			AliyunReginonID:       claim.Annotations[ingressParameterAliyunReginonIDKey],
+			AliyunReginonID:       claim.Annotations[ingressParameterAliyunRegionIDKey],
 			AliyunZoneID:          claim.Annotations[ingressParameterAliyunZoneIDKey],
 		})
 	} else {
