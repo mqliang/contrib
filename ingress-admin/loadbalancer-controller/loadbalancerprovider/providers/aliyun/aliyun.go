@@ -22,7 +22,7 @@ var aliyunIngressImage string
 func init() {
 	aliyunIngressImage = os.Getenv("INGRESS_ALIYUN_IMAGE")
 	if aliyunIngressImage == "" {
-		aliyunIngressImage = "index.caicloud.io/caicloud/aliyun-ingress-controller:v0.0.1"
+		aliyunIngressImage = "cargo.caicloud.io/caicloud/aliyun-ingress-controller:v0.0.1"
 	}
 }
 

@@ -40,11 +40,11 @@ var keepalibedImage, nginxIngressImage string
 func init() {
 	keepalibedImage = os.Getenv("INGRESS_KEEPALIVED_IMAGE")
 	if keepalibedImage == "" {
-		keepalibedImage = "index.caicloud.io/caicloud/ingress-keepalived-vip:v0.0.1"
+		keepalibedImage = "cargo.caicloud.io/caicloud/ingress-keepalived-vip:v0.0.1"
 	}
 	nginxIngressImage = os.Getenv("INGRESS_NGINX_IMAGE")
 	if nginxIngressImage == "" {
-		nginxIngressImage = "index.caicloud.io/caicloud/nginx-ingress-controller:v0.0.1"
+		nginxIngressImage = "cargo.caicloud.io/caicloud/nginx-ingress-controller:v0.0.1"
 	}
 }
 
