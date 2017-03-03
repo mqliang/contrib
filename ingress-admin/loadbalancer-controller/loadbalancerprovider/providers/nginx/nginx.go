@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/golang/glog"
 	tprapi "k8s.io/contrib/ingress-admin/loadbalancer-controller/api"
@@ -44,7 +45,7 @@ func init() {
 	}
 	nginxIngressImage = os.Getenv("INGRESS_NGINX_IMAGE")
 	if nginxIngressImage == "" {
-		nginxIngressImage = "cargo.caicloud.io/caicloud/nginx-ingress-controller:v0.0.1"
+		nginxIngressImage = "cargo.caicloud.io/caicloud/nginx-ingress-controller:v0.0.2"
 	}
 }
 
@@ -228,6 +229,122 @@ func (p *nginxLoadbalancerProvisioner) getReplicationController() *v1.Replicatio
 	}
 	affinityAnnotation, _ := json.Marshal(v1.Affinity{NodeAffinity: nodeAffinity, PodAntiAffinity: podAntiAffinity})
 
+	keepalivedContainer := v1.Container{
+		Name:            "keepalived",
+		Image:           keepalibedImage,
+		ImagePullPolicy: v1.PullAlways,
+		Resources: v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("100m"),
+				v1.ResourceMemory: resource.MustParse("100Mi"),
+			},
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("100m"),
+				v1.ResourceMemory: resource.MustParse("100Mi"),
+			},
+		},
+		SecurityContext: &v1.SecurityContext{
+			Privileged: &nginxlbPrivileged,
+		},
+		Env: []v1.EnvVar{
+			{
+				Name: "POD_NAME",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
+			{
+				Name:  "SERVICE_NAME",
+				Value: p.options.LoadBalancerName,
+			},
+		},
+	}
+	nginxIngressContainer := v1.Container{
+		Name:            "nginx-ingress-lb",
+		Image:           nginxIngressImage,
+		ImagePullPolicy: v1.PullAlways,
+		Resources:       p.options.Resources,
+		Env: []v1.EnvVar{
+			{
+				Name: "POD_NAME",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
+		},
+		Ports: []v1.ContainerPort{
+			{
+				ContainerPort: 80,
+				//HostPort:      80,
+				HostIP: p.options.LoadBalancerVIP,
+			},
+			{
+				ContainerPort: 443,
+				//HostPort:      443,
+				HostIP: p.options.LoadBalancerVIP,
+			},
+		},
+	}
+
+	v1Probe := &v1.Probe{
+		Handler: v1.Handler{
+			HTTPGet: &v1.HTTPGetAction{
+				Path:   "/ingress-controller-healthz",
+				Port:   intstr.FromInt(80),
+				Scheme: v1.URISchemeHTTP,
+			},
+		},
+	}
+	v2Probe := &v1.Probe{
+		Handler: v1.Handler{
+			HTTPGet: &v1.HTTPGetAction{
+				Path:   "/healthz",
+				Port:   intstr.FromInt(10254),
+				Scheme: v1.URISchemeHTTP,
+			},
+		},
+	}
+	v1Args := []string{
+		"/nginx-ingress-controller",
+		"--default-backend-service=default/default-http-backend",
+		"--nginx-configmap=kube-system/" + p.options.LoadBalancerName,
+	}
+	v2Args := []string{
+		"/nginx-ingress-controller",
+		"--default-backend-service=default/default-http-backend",
+		"--configmap=kube-system/" + p.options.LoadBalancerName,
+	}
+
+	if strings.Contains(nginxIngressImage, "v0.0.1") {
+		nginxIngressContainer.ReadinessProbe = v1Probe
+		nginxIngressContainer.LivenessProbe = v1Probe
+		nginxIngressContainer.Args = v1Args
+	} else if strings.Contains(nginxIngressImage, "v0.0.2") {
+		nginxIngressContainer.ReadinessProbe = v2Probe
+		nginxIngressContainer.LivenessProbe = v2Probe
+		nginxIngressContainer.Args = v2Args
+	}
+
 	return &v1.ReplicationController{
 		ObjectMeta: v1.ObjectMeta{
 			Name: p.options.LoadBalancerName,
@@ -252,105 +369,8 @@ func (p *nginxLoadbalancerProvisioner) getReplicationController() *v1.Replicatio
 					HostNetwork:                   true,
 					TerminationGracePeriodSeconds: &terminationGracePeriodSeconds,
 					Containers: []v1.Container{
-						{
-							Name:            "keepalived",
-							Image:           keepalibedImage,
-							ImagePullPolicy: v1.PullAlways,
-							Resources: v1.ResourceRequirements{
-								Requests: v1.ResourceList{
-									v1.ResourceCPU:    resource.MustParse("100m"),
-									v1.ResourceMemory: resource.MustParse("100Mi"),
-								},
-								Limits: v1.ResourceList{
-									v1.ResourceCPU:    resource.MustParse("100m"),
-									v1.ResourceMemory: resource.MustParse("100Mi"),
-								},
-							},
-							SecurityContext: &v1.SecurityContext{
-								Privileged: &nginxlbPrivileged,
-							},
-							Env: []v1.EnvVar{
-								{
-									Name: "POD_NAME",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.name",
-										},
-									},
-								},
-								{
-									Name: "POD_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-								{
-									Name:  "SERVICE_NAME",
-									Value: p.options.LoadBalancerName,
-								},
-							},
-						},
-						{
-							Name:            "nginx-ingress-lb",
-							Image:           nginxIngressImage,
-							ImagePullPolicy: v1.PullAlways,
-							Resources:       p.options.Resources,
-							ReadinessProbe: &v1.Probe{
-								Handler: v1.Handler{
-									HTTPGet: &v1.HTTPGetAction{
-										Path:   "/ingress-controller-healthz",
-										Port:   intstr.FromInt(80),
-										Scheme: v1.URISchemeHTTP,
-									},
-								},
-							},
-							LivenessProbe: &v1.Probe{
-								Handler: v1.Handler{
-									HTTPGet: &v1.HTTPGetAction{
-										Path:   "/ingress-controller-healthz",
-										Port:   intstr.FromInt(80),
-										Scheme: v1.URISchemeHTTP,
-									},
-								},
-							},
-							Env: []v1.EnvVar{
-								{
-									Name: "POD_NAME",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.name",
-										},
-									},
-								},
-								{
-									Name: "POD_NAMESPACE",
-									ValueFrom: &v1.EnvVarSource{
-										FieldRef: &v1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
-								},
-							},
-							Ports: []v1.ContainerPort{
-								{
-									ContainerPort: 80,
-									//HostPort:      80,
-									HostIP: p.options.LoadBalancerVIP,
-								},
-								{
-									ContainerPort: 443,
-									//HostPort:      443,
-									HostIP: p.options.LoadBalancerVIP,
-								},
-							},
-							Args: []string{
-								"/nginx-ingress-controller",
-								"--default-backend-service=default/default-http-backend",
-								"--nginx-configmap=kube-system/" + p.options.LoadBalancerName,
-							},
-						},
+						keepalivedContainer,
+						nginxIngressContainer,
 					},
 				},
 			},
